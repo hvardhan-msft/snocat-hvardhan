@@ -42,6 +42,43 @@ impl QuinnListenEndpoint {
     })
   }
 
+  /// Bind a [`QuinnListenEndpoint`] with custom UDP socket receive and send buffer sizes.
+  ///
+  /// This is useful for high-throughput scenarios where the default OS socket buffer
+  /// sizes are too small to avoid packet loss under load.
+  pub fn bind_with_buffer_sizes(
+    bind_addr: SocketAddr,
+    quinn_config: quinn::ServerConfig,
+    recv_socket_buffer_size: usize,
+    send_socket_buffer_size: usize,
+  ) -> Result<Self, std::io::Error> {
+    let domain = match bind_addr {
+      SocketAddr::V4(_) => socket2::Domain::IPV4,
+      SocketAddr::V6(_) => socket2::Domain::IPV6,
+    };
+    let socket = socket2::Socket::new(domain, socket2::Type::DGRAM, Some(socket2::Protocol::UDP))?;
+    socket.set_recv_buffer_size(recv_socket_buffer_size)?;
+    socket.set_send_buffer_size(send_socket_buffer_size)?;
+    socket.bind(&bind_addr.into())?;
+    let udp_socket: std::net::UdpSocket = socket.into();
+
+    let runtime = quinn::default_runtime().ok_or_else(|| {
+      std::io::Error::new(std::io::ErrorKind::Other, "no async runtime found")
+    })?;
+    let endpoint = quinn::Endpoint::new(
+      quinn::EndpointConfig::default(),
+      Some(quinn_config),
+      udp_socket,
+      runtime,
+    )?;
+    Ok(Self {
+      bind_addr,
+      endpoint: Box::pin(endpoint),
+      accepting: None,
+      is_terminated: false,
+    })
+  }
+
   /// Get the quinn listen endpoint's bind address.
   pub fn bind_address(&self) -> SocketAddr {
     self.bind_addr
