@@ -21,6 +21,13 @@ around incoming connection and (bi/uni)stream handling.
 	captures the underlying tunnel's real `TunnelAddressInfo` instead of always
 	reporting `Unidentified`. (PR #7)
 
+- Added `QuinnListenEndpoint::bind_with_buffer_sizes()` method to allow configuring
+	UDP socket receive and send buffer sizes when binding a QUIC listener endpoint.
+	Uses `socket2` to set buffer sizes on the underlying `UdpSocket` before passing
+	it to `quinn::Endpoint::new()`. (PR #10)
+
+- Added `socket2` dependency for low-level socket configuration.
+
 ## [0.7.0] - 2022-10-29
 
 ### Hybrid Eventually-Consistent Tunnel Repositories (0.6.0-alpha.1)
