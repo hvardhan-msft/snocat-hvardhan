@@ -18,6 +18,7 @@ use std::{
 };
 
 use tokio_stream::StreamMap;
+use socket2;
 
 use crate::common::protocol::tunnel::{BoxedTunnel, TunnelSide};
 
@@ -45,6 +46,27 @@ impl QuinnListenEndpoint {
   /// Get the quinn listen endpoint's bind address.
   pub fn bind_address(&self) -> SocketAddr {
     self.bind_addr
+  }
+
+  pub fn bind_with_buffer_sizes(
+      bind_addr: SocketAddr,
+      quinn_config: quinn::ServerConfig,
+      recv_socket_buffer_size: usize,
+      send_socket_buffer_size: usize,
+  ) -> Result<Self, std::io::Error> {
+      let socket = std::net::UdpSocket::bind(bind_addr)?;
+      let socket2 = socket2::SockRef::from(&socket);
+      socket2.set_recv_buffer_size(recv_socket_buffer_size)?; // Set the receive buffer size
+      socket2.set_send_buffer_size(send_socket_buffer_size)?; // Set the send buffer size
+      let runtime = quinn::default_runtime()
+            .ok_or_else(||std::io::Error::new(std::io::ErrorKind::Other, "no async runtime found"))?;
+      let endpoint = quinn::Endpoint::new(
+          quinn::EndpointConfig::default(),
+          Some(quinn_config),
+          socket,
+          runtime,
+      )?;
+      Ok(Self { bind_addr, endpoint: Box::pin(endpoint), accepting: None, is_terminated: false })
   }
 }
 
