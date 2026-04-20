@@ -56,8 +56,12 @@ impl QuinnListenEndpoint {
   ) -> Result<Self, std::io::Error> {
       let socket = std::net::UdpSocket::bind(bind_addr)?;
       let socket2 = socket2::SockRef::from(&socket);
-      socket2.set_recv_buffer_size(recv_socket_buffer_size)?; // Set the receive buffer size
-      socket2.set_send_buffer_size(send_socket_buffer_size)?; // Set the send buffer size
+      if recv_socket_buffer_size > 0 {
+          socket2.set_recv_buffer_size(recv_socket_buffer_size)?;
+      }
+      if send_socket_buffer_size > 0 {
+          socket2.set_send_buffer_size(send_socket_buffer_size)?;
+      }
       let runtime = quinn::default_runtime()
             .ok_or_else(||std::io::Error::new(std::io::ErrorKind::Other, "no async runtime found"))?;
       let endpoint = quinn::Endpoint::new(
